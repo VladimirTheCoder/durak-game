@@ -1,0 +1,531 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Дурак подкидной (Премиум)</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #1c3520;
+            padding: 20px;
+            color: white;
+            margin: 0;
+        }
+        .game-container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: #2d5d3d;
+            padding: 20px;
+            border-radius: 15px;
+            box-shadow: 0 0 20px rgba(0,0,0,0.5);
+        }
+        .trump {
+            font-size: 24px;
+            color: #ffeb3b;
+            text-align: center;
+            margin: 10px 0;
+            padding: 10px;
+            background: rgba(0,0,0,0.2);
+            border-radius: 8px;
+        }
+        .card {
+            width: 60px;
+            height: 90px;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+            margin: 5px;
+            display: inline-flex;
+            flex-direction: column;
+            justify-content: space-between;
+            padding: 5px;
+            cursor: pointer;
+            transition: transform 0.2s;
+        }
+        .card:hover {
+            transform: translateY(-5px);
+        }
+        .card.red { color: #d40000; }
+        .card.black { color: #000; }
+        .card-value {
+            font-size: 16px;
+            font-weight: bold;
+        }
+        .card-suit {
+            font-size: 24px;
+            text-align: center;
+        }
+        .table {
+            min-height: 120px;
+            background: #1a4a2a;
+            border-radius: 10px;
+            padding: 10px;
+            margin: 15px 0;
+            text-align: center;
+        }
+        .controls {
+            margin-top: 20px;
+            text-align: center;
+        }
+        button {
+            padding: 12px 25px;
+            margin: 0 15px;
+            font-size: 18px;
+            background: #e6b800;
+            color: #000;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: bold;
+        }
+        button:hover {
+            background: #ffcc00;
+        }
+        button:disabled {
+            background: #555;
+            color: #aaa;
+            cursor: not-allowed;
+        }
+        .premium-banner {
+            background: linear-gradient(135deg, #ffcc00, #ff9500);
+            padding: 15px;
+            border-radius: 10px;
+            margin: 20px 0;
+            text-align: center;
+            color: #000;
+            font-weight: bold;
+        }
+        .payment-options {
+            display: flex;
+            justify-content: space-around;
+            margin-top: 15px;
+        }
+        .payment-option {
+            background: #fff;
+            color: #000;
+            padding: 10px 15px;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        .payment-option:hover {
+            transform: scale(1.05);
+            box-shadow: 0 0 10px rgba(255,204,0,0.7);
+        }
+    </style>
+</head>
+<body>
+    <div class="game-container">
+        <h1 style="text-align: center;">Дурак подкидной</h1>
+        
+        <div class="premium-banner">
+            <h3>Премиум-версия</h3>
+            <p>Полный доступ к игре без ограничений</p>
+            <div class="payment-options">
+                <div class="payment-option" onclick="showPaymentModal('monthly')">
+                    1 месяц - 99 ₽
+                </div>
+                <div class="payment-option" onclick="showPaymentModal('yearly')">
+                    1 год - 799 ₽ (экономия 30%)
+                </div>
+                <div class="payment-option" onclick="showPaymentModal('forever')">
+                    Навсегда - 1999 ₽
+                </div>
+            </div>
+        </div>
+
+        <div class="trump">Козырь: <span id="trump-display">?</span></div>
+
+        <h3>Противник (<span id="opponent-count">6</span>)</h3>
+        <div id="opponent-cards" style="min-height: 100px;"></div>
+
+        <h3>Стол</h3>
+        <div class="table" id="table-cards"></div>
+
+        <h3>Ваши карты (<span id="player-count">6</span>)</h3>
+        <div id="player-cards"></div>
+
+        <div class="controls">
+            <button id="beat-btn" disabled>Бито</button>
+            <button id="take-btn" disabled>Взять</button>
+        </div>
+    </div>
+
+    <!-- Модальное окно оплаты -->
+    <div id="payment-modal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 1000; color: white; text-align: center; padding-top: 100px;">
+        <div style="background: #2d5d3d; max-width: 500px; margin: 0 auto; padding: 20px; border-radius: 10px;">
+            <h2>Оформление подписки</h2>
+            <p id="payment-description">Вы выбрали подписку на 1 месяц за 99 ₽</p>
+            <div id="vk-pay-button" style="margin: 20px 0; cursor: pointer;">
+                <img src="https://vk.com/images/payment_button.png" alt="Оплатить через ВКонтакте" style="max-width: 200px;">
+            </div>
+            <div id="ok-pay-button" style="margin: 20px 0; cursor: pointer;">
+                <img src="https://ok.ru/payment/button.png" alt="Оплатить через Одноклассники" style="max-width: 200px;">
+            </div>
+            <button onclick="hidePaymentModal()" style="background: #ff3333; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer;">Отмена</button>
+        </div>
+    </div>
+
+<script>
+    // Константы игры
+    const SUITS = ['♥', '♦', '♣', '♠'];
+    const RANKS = ['6', '7', '8', '9', '10', 'J', 'Q', 'K', 'A'];
+    const RANK_VALUES = { '6': 6, '7': 7, '8': 8, '9': 9, '10': 10, 'J': 11, 'Q': 12, 'K': 13, 'A': 14 };
+
+    // Состояние игры
+    let deck = [];
+    let playerHand = [];
+    let opponentHand = [];
+    let tableCards = [];
+    let trumpSuit = null;
+    let currentPlayer = 'player';
+    let gameStatus = 'attack';
+    let isPremium = false; // Флаг премиум-доступа
+
+    // Инициализация игры
+    function initGame() {
+        createDeck();
+        shuffleDeck();
+        determineTrump();
+        dealCards();
+        updateUI();
+        updateControls();
+        
+        // Проверяем премиум-статус (в реальном приложении - через API соцсети)
+        checkPremiumStatus();
+    }
+
+    function checkPremiumStatus() {
+        // Здесь должна быть проверка через API соцсети
+        // Для демо оставляем false
+        isPremium = false;
+        
+        if (!isPremium) {
+            // Показываем баннер премиума
+            document.querySelector('.premium-banner').style.display = 'block';
+        } else {
+            document.querySelector('.premium-banner').style.display = 'none';
+        }
+    }
+
+    function createDeck() {
+        deck = [];
+        for (let suit of SUITS) {
+            for (let rank of RANKS) {
+                deck.push({ suit, rank });
+            }
+        }
+    }
+
+    function shuffleDeck() {
+        for (let i = deck.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [deck[i], deck[j]] = [deck[j], deck[i]];
+        }
+    }
+
+    function determineTrump() {
+        trumpSuit = deck[0].suit;
+        document.getElementById('trump-display').textContent = trumpSuit;
+    }
+
+    function dealCards() {
+        playerHand = deck.splice(0, 6);
+        opponentHand = deck.splice(0, 6);
+    }
+
+    function updateUI() {
+        renderPlayerHand();
+        renderOpponentHand();
+        renderTable();
+        updateCounts();
+    }
+
+    function renderPlayerHand() {
+        const container = document.getElementById('player-cards');
+        container.innerHTML = '';
+        playerHand.forEach((card, index) => {
+            const cardEl = document.createElement('div');
+            cardEl.className = `card ${card.suit === '♥' || card.suit === '♦' ? 'red' : 'black'}`;
+            cardEl.innerHTML = `
+                <div class="card-value">${card.rank}</div>
+                <div class="card-suit">${card.suit}</div>
+                <div class="card-value" style="transform: rotate(180deg)">${card.rank}</div>
+            `;
+            cardEl.onclick = () => handlePlayerMove(index);
+            container.appendChild(cardEl);
+        });
+    }
+
+    function renderOpponentHand() {
+        const container = document.getElementById('opponent-cards');
+        container.innerHTML = '';
+        for (let i = 0; i < opponentHand.length; i++) {
+            const cardBack = document.createElement('div');
+            cardBack.className = 'card';
+            cardBack.style.background = '#3498db';
+            container.appendChild(cardBack);
+        }
+    }
+
+    function renderTable() {
+        const container = document.getElementById('table-cards');
+        container.innerHTML = '';
+        tableCards.forEach(card => {
+            const cardEl = document.createElement('div');
+            cardEl.className = `card ${card.suit === '♥' || card.suit === '♦' ? 'red' : 'black'}`;
+            cardEl.innerHTML = `
+                <div class="card-value">${card.rank}</div>
+                <div class="card-suit">${card.suit}</div>
+                <div class="card-value" style="transform: rotate(180deg)">${card.rank}</div>
+            `;
+            container.appendChild(cardEl);
+        });
+    }
+
+    function updateCounts() {
+        document.getElementById('player-count').textContent = playerHand.length;
+        document.getElementById('opponent-count').textContent = opponentHand.length;
+    }
+
+    function updateControls() {
+        const beatBtn = document.getElementById('beat-btn');
+        const takeBtn = document.getElementById('take-btn');
+        
+        const canBeat = (
+            currentPlayer === 'player' && 
+            tableCards.length > 0 &&
+            tableCards.length % 2 === 0
+        );
+        
+        const canTake = (
+            currentPlayer === 'player' && 
+            gameStatus === 'defense' && 
+            tableCards.length > 0
+        );
+        
+        beatBtn.disabled = !canBeat;
+        takeBtn.disabled = !canTake;
+    }
+
+    function handlePlayerMove(cardIndex) {
+        if (!isPremium) {
+            alert('Пожалуйста, приобретите премиум-доступ для игры');
+            showPaymentModal('monthly');
+            return;
+        }
+        
+        if (currentPlayer !== 'player') return;
+        
+        const card = playerHand[cardIndex];
+        
+        if (gameStatus === 'attack') {
+            const canAttack = tableCards.length === 0 || 
+                            tableCards.some(tableCard => tableCard.rank === card.rank);
+            
+            if (canAttack) {
+                tableCards.push(card);
+                playerHand.splice(cardIndex, 1);
+                gameStatus = 'defense';
+                currentPlayer = 'opponent';
+                
+                updateUI();
+                updateControls();
+                
+                setTimeout(opponentDefense, 1000);
+            }
+        } else if (gameStatus === 'defense') {
+            if (tableCards.length > 0 && tableCards.length % 2 === 1) {
+                const lastCard = tableCards[tableCards.length - 1];
+                const cardRankValue = RANK_VALUES[card.rank];
+                const lastRankValue = RANK_VALUES[lastCard.rank];
+                
+                const canBeat = (card.suit === lastCard.suit && cardRankValue > lastRankValue) ||
+                              (card.suit === trumpSuit && lastCard.suit !== trumpSuit);
+                
+                if (canBeat) {
+                    tableCards.push(card);
+                    playerHand.splice(cardIndex, 1);
+                    
+                    updateUI();
+                    updateControls();
+                }
+            }
+        }
+    }
+
+    function opponentDefense() {
+        if (tableCards.length === 0 || tableCards.length % 2 !== 1) return;
+        
+        const lastCard = tableCards[tableCards.length - 1];
+        let foundCard = null;
+        
+        for (let i = 0; i < opponentHand.length; i++) {
+            const card = opponentHand[i];
+            const lastRankValue = RANK_VALUES[lastCard.rank];
+            const cardRankValue = RANK_VALUES[card.rank];
+            
+            const canBeat = (card.suit === lastCard.suit && cardRankValue > lastRankValue) ||
+                          (card.suit === trumpSuit && lastCard.suit !== trumpSuit);
+            
+            if (canBeat) {
+                foundCard = card;
+                opponentHand.splice(i, 1);
+                break;
+            }
+        }
+        
+        if (foundCard) {
+            tableCards.push(foundCard);
+            
+            if (tableCards.length % 2 === 0) {
+                gameStatus = 'attack';
+                currentPlayer = 'player';
+            } else {
+                setTimeout(opponentDefense, 1000);
+            }
+        } else {
+            opponentHand = opponentHand.concat(tableCards);
+            tableCards = [];
+            gameStatus = 'attack';
+            currentPlayer = 'player';
+        }
+        
+        refillHands();
+        updateUI();
+        updateControls();
+    }
+
+    function beatBtnClick() {
+        if (!isPremium) {
+            alert('Пожалуйста, приобретите премиум-доступ для игры');
+            showPaymentModal('monthly');
+            return;
+        }
+        
+        if (!document.getElementById('beat-btn').disabled) {
+            tableCards = [];
+            gameStatus = 'attack';
+            currentPlayer = 'opponent';
+            
+            refillHands();
+            updateUI();
+            updateControls();
+            
+            setTimeout(opponentAttack, 1000);
+        }
+    }
+
+    function takeBtnClick() {
+        if (!isPremium) {
+            alert('Пожалуйста, приобретите премиум-доступ для игры');
+            showPaymentModal('monthly');
+            return;
+        }
+        
+        if (!document.getElementById('take-btn').disabled) {
+            playerHand = playerHand.concat(tableCards);
+            tableCards = [];
+            gameStatus = 'attack';
+            currentPlayer = 'opponent';
+            
+            refillHands();
+            updateUI();
+            updateControls();
+            
+            setTimeout(opponentAttack, 1000);
+        }
+    }
+
+    function opponentAttack() {
+        if (opponentHand.length === 0) return;
+        
+        const randomIndex = Math.floor(Math.random() * opponentHand.length);
+        tableCards.push(opponentHand[randomIndex]);
+        opponentHand.splice(randomIndex, 1);
+        
+        currentPlayer = 'player';
+        gameStatus = 'defense';
+        
+        updateUI();
+        updateControls();
+    }
+
+    function refillHands() {
+        while (playerHand.length < 6 && deck.length > 0) {
+            playerHand.push(deck.shift());
+        }
+        while (opponentHand.length < 6 && deck.length > 0) {
+            opponentHand.push(deck.shift());
+        }
+        
+        checkGameEnd();
+    }
+
+    function checkGameEnd() {
+        if (playerHand.length === 0) {
+            alert('Поздравляем! Вы выиграли!');
+            initGame();
+        } else if (opponentHand.length === 0) {
+            alert('К сожалению, вы проиграли.');
+            initGame();
+        }
+    }
+
+    // Платежная система
+    function showPaymentModal(plan) {
+        const modal = document.getElementById('payment-modal');
+        const description = document.getElementById('payment-description');
+        
+        switch(plan) {
+            case 'monthly':
+                description.textContent = 'Вы выбрали подписку на 1 месяц за 99 ₽';
+                break;
+            case 'yearly':
+                description.textContent = 'Вы выбрали подписку на 1 год за 799 ₽ (экономия 30%)';
+                break;
+            case 'forever':
+                description.textContent = 'Вы выбрали подписку навсегда за 1999 ₽';
+                break;
+        }
+        
+        modal.style.display = 'block';
+        
+        // Имитация платежа (в реальном приложении - интеграция с API соцсетей)
+        document.getElementById('vk-pay-button').onclick = function() {
+            alert('Перенаправление на платежную систему ВКонтакте...');
+            // В реальном приложении: VK.callMethod('showOrderBox', {...});
+            setTimeout(function() {
+                isPremium = true;
+                modal.style.display = 'none';
+                document.querySelector('.premium-banner').style.display = 'none';
+                alert('Поздравляем! Премиум-доступ активирован!');
+            }, 1000);
+        };
+        
+        document.getElementById('ok-pay-button').onclick = function() {
+            alert('Перенаправление на платежную систему Одноклассников...');
+            // В реальном приложении: OK.Api.call('payments.showDialog', {...});
+            setTimeout(function() {
+                isPremium = true;
+                modal.style.display = 'none';
+                document.querySelector('.premium-banner').style.display = 'none';
+                alert('Поздравляем! Премиум-доступ активирован!');
+            }, 1000);
+        };
+    }
+
+    function hidePaymentModal() {
+        document.getElementById('payment-modal').style.display = 'none';
+    }
+
+    // Назначаем обработчики кнопок
+    document.getElementById('beat-btn').addEventListener('click', beatBtnClick);
+    document.getElementById('take-btn').addEventListener('click', takeBtnClick);
+
+    // Запуск игры при загрузке страницы
+    window.addEventListener('load', initGame);
+</script>
+</body>
+</html>
